@@ -178,8 +178,6 @@ void region_growing(const VertexSet& init_poles,
             }
         }
     }
-
-    std::cout << "vert label map size: " << vert_labels.size() << std::endl;
 }
 
 Point compute_optimal_point(QEM_metric& cluster_qem, Point& cluster_pole)
@@ -248,6 +246,86 @@ void update_poles(const PointList& new_pole_centers,
         //std::cout << "source: " << query << std::endl;
         //std::cout << "target: " << (it->first)->point() << std::endl;
     }
+}
+
+void compute_cluster_loss(  const PointList& pole_centers, 
+                            VertQemMap& vert_qem_map, 
+                            const VertIntMap& vert_labels, 
+                            PairList& pole_loss)
+{
+    int num_poles = (int)pole_centers.size();
+    for(int i = 0; i < num_poles; i++)
+    {
+        pole_loss.push_back({-1e10, Vertex_handle()});
+    }
+
+    for (const auto elem: vert_labels)
+    {
+        int center_ind = elem.second;
+        if(center_ind < 0)
+            continue;
+
+        Vertex_handle vert = elem.first;
+        double error = compute_minimum_qem_error(pole_centers[center_ind], vert_qem_map[vert]);
+
+        if(error > pole_loss[center_ind].first)
+        {
+            pole_loss[center_ind].first = error;
+            pole_loss[center_ind].second = vert;
+        }
+    }
+}
+
+void split_cluster( PairList& pole_loss, 
+                    int num_add, 
+                    VertexSet& curr_poles)
+{
+    std::sort(pole_loss.begin(), pole_loss.end(), 
+              [](const auto& a, const auto& b) { return a.first > b.first;});
+
+    for(int i = 0; i < std::min((int)pole_loss.size(), num_add); i++)
+    {
+        curr_poles.insert(pole_loss[i].second);
+    }
+}
+
+void reconstruct_polygon(Polyhedron& mesh, VertIntMap& vert_labels, IntIntList& poly_list)
+{
+    for(Facet_handle fd: faces(mesh))
+    {
+        Halfedge_around_facet_circulator vcirc = fd->facet_begin();
+        Halfedge_around_facet_circulator vend = vcirc;
+        IntList vert_indices;
+        CGAL_For_all(vcirc, vend)
+        {
+            Vertex_handle vd = vcirc->vertex();
+            vert_indices.push_back(vert_labels[vd]);
+        }
+
+        if((vert_indices[0] != vert_indices[1]) && (vert_indices[0] != vert_indices[2]) && (vert_indices[1] != vert_indices[2]))
+            poly_list.push_back(vert_indices);
+    }
+}
+
+void save_polygon_soup(PointList& pole_centers, IntIntList& poly_list, std::string filename)
+{
+    std::ofstream soup_file;
+    soup_file.open(filename);
+
+    soup_file << "OFF"  << std::endl;
+    soup_file << pole_centers.size() << " " << poly_list.size() << " 0" << std::endl;
+
+    for(int i = 0; i < pole_centers.size(); i++)
+        soup_file << pole_centers[i].x() << " " << pole_centers[i].y() << " " << pole_centers[i].z() << std::endl;
+
+    for(int i = 0; i < poly_list.size(); i++)
+    {
+        soup_file << "3";
+        for(int j = 0; j < 3; j++)
+            soup_file << " " << poly_list[i][j];
+        soup_file << std::endl;
+    }    
+    soup_file.close();
 }
 
 void save_poles(VertexSet& poles, std::string filename)

@@ -15,6 +15,7 @@
 // std
 #include <vector>
 #include <set>
+#include <algorithm>
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel     Kernel;
 typedef Kernel::Point_3                                         Point;
@@ -38,6 +39,9 @@ typedef std::vector<Vertex_handle>          VertexList;
 typedef std::set<Vertex_handle>             VertexSet;
 typedef std::vector<int>                    IntList;
 typedef std::vector<Point>                  PointList;
+typedef std::pair<double, Vertex_handle>    LossVertPair;
+typedef std::vector<LossVertPair>           PairList;
+typedef std::vector<IntList>                IntIntList;
 
 // KDTree
 typedef boost::property_map<Polyhedron, CGAL::vertex_point_t>::type                         Vertex_point_pmap;
